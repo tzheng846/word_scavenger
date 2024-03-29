@@ -10,20 +10,23 @@ def getWordList(word):
     if response.status_code != requests.codes.ok:
         print("Error:", response.status_code, response.text)
     else:
-        return getSynonmyms(response.text)
+        return getSynonmyms(response.text.replace(word,""))
 
 def getSynonmyms(str):
-    str = str.split('[')[1].replace(' "], "antonyms":',"").split('", "')
+    str = str.split('[')[1]
+    str = str.replace(' "], "antonyms":',"")
+    str = str.split('", "')
     ser = pd.Series(str)
     ser.loc[0] = ser.loc[0].replace('"','')
     ser.loc[ser.shape[0]-1] = ser.loc[ser.shape[0]-1].replace('"], "antonyms":','').replace(" ","")
-    return ser
+    return ser.to_list()
 
-def oneRound(startWord,startResponse,options):
+def oneRound(startWord,options):
     #select and prints out options
-    topWords = startResponse.head(options)
+    tempResponse = getWordList(startWord)
+    topWords = tempResponse[:options]
     for i in range(options):
-        print(i+1,topWords.loc[i])
+        print(i+1,topWords[i])
 
     #check if selected word is an option
     userInput = input("Enter an integer: ")
@@ -38,19 +41,25 @@ def oneRound(startWord,startResponse,options):
     print('you have chosen: ',selectedWord)
     print("Target word is:",targetWord)
     print()
-
     #reset starting variables
-    return [selectedWord,getWordList(startWord)]
+    return selectedWord
 
-#does not work: intended iterations does not follow through
-#pathfinds through options
-def pathfind(word,options,numIterations):
+#pathfind randomly chooses one of the options and returns the choosen word
+#does not allow duplicates points on path
+def pathfind(word,options):
+    global turns
+    path = []
     response = getWordList(word)
-    print(numIterations)
-    for i in range(numIterations):
-        topWords = response.head(options)
-        randomNum = np.random.randint(options)
-        word = topWords.iloc[randomNum]
+    topWords = response[:options]
+    for j in range(turns):
+        word = np.random.choice(topWords)
+        while(word in path):
+            try:
+                topWords.remove(word)
+            except:
+                print("Error RAN OUT OF OPTIONS")
+            word = np.random.choice(topWords)
+        path.append(word)
         response = getWordList(word)
     return word
 
@@ -58,29 +67,23 @@ def pathfind(word,options,numIterations):
 
 #initalize game
 #starting word
-startWord = "kind" #input("Choose Start Word: ")
-startResponse = getWordList(startWord)
-targetWord = "selfish"
-#select top 10 words from list of synonmyms
+word = "kind" #input("Choose Start Word: ")
 numOptions = 5
+targetWord = word
 
-#generates random target word
-word = startWord
-response = getWordList(word)
+#creates a path for user to get to
+turns = int(input("Choose number of turns you would like to play:"))
+targetWord = pathfind(targetWord,numOptions)
 
 #game
 #repeat until word becomes target word
-temp = oneRound(startWord,startResponse,numOptions)
-while(word!=targetWord):
-    temp = oneRound(temp[0],temp[1],numOptions)
+print("Your Target is:", targetWord)
+while(turns!=0):
+    word = oneRound(word,numOptions)
+    turns = turns-1
+    if(word == targetWord):
+        print("You Win! :)")
+        exit()
+print("You Lose")
 
-"""
-#creates a path for user to get to
-#does not work
-iterations = 4
-targetWord = [startWord,getWordList(startWord)]
-for i in range(iterations):
-    targetWord = pathfind(startWord,numOptions,iterations)
-print(targetWord)
-"""
 
